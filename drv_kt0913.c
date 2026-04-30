@@ -151,6 +151,27 @@ void drv_kt0913_softmute_onoff(bool is_mute)
     }
     _set_reg(REG_ADDR_SOFTMUTE, reg_val);
 }
+void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl)
+{
+    uint16_t reg_val;
+
+    if(p_volume_ctrl == NULL) {
+        return;
+    }
+
+    // Volumeは5bitの32段階 @RXCFGレジスタ(Addr:0x0F)のbit4:0の5ビットで制御
+    reg_val = (p_volume_ctrl->volume_dB & 0x1F) / 100; // 0 ~ 0x1Fにスケーリング
+    _set_reg(REG_ADDR_RXCFG, reg_val);
+
+    // ベースブーストの設定 @Volumeレジスタ(Addr:0x04)のbit[9:8]で制御
+    reg_val = _get_reg(REG_ADDR_VOLUME);
+    if(p_volume_ctrl->is_bass_boost) {
+        reg_val |= 0x0300; // bit[9:8]をセットしてベースブーストON
+    } else {
+        reg_val &= ~0x0300; // bit[9:8]を0にクリアしてベースブーストOFF
+    }
+    _set_reg(REG_ADDR_VOLUME, reg_val);
+}
 
 bool drv_kt0913_set_fm_freq(E_FM_STATION station)
 {
