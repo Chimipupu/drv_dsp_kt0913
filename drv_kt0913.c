@@ -40,36 +40,42 @@ typedef enum {
     REG_ADDR_AFC = 0x3C,
 } KT0913_REG_ADDR;
 
+// FMラジオ局構造体
 typedef struct {
-    float fm_rerq_Mhz;
-    uint16_t set_reg_val;
-    char *p_statio_str;
+    float fm_rerq_Mhz;    // FM周波数(MHz)
+    uint16_t set_reg_val; // KT0913のTUNEレジスタ(Addr:0x03)に設定値
 } fm_station_freq_t;
 
+// KT0913 TUNEレジスタ(0x03)設定値計算マクロ
+#define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f)) & 0x0FFF)))
+
+// [FMラジオ局テーブル]
+// NOTE: 周波数は総務省より引用 (https://www.soumu.go.jp/menu_seisaku/ictseisaku/housou_suishin/fm-list.html)
 const fm_station_freq_t g_fm_station_freq_tbl[] = {
-#if RADIO_AREA_JAPAN_TOKYO
-    {80.0f, 0x8640, "TOKYO FM"},                           // TOKYO FM: 80.0MHz
-    {81.3f, 0x865A, "J-WAVE"},                             // J-WAVE: 81.3MHz
-    {82.5f, 0x8672, "NHK-FM-TOKYO"},                       // NHK FM東京: 82.5MHz
-    {89.7f, 0x8702, "InterFM897"},                         // InterFM897: 89.7MHz
-    {90.5f, 0x8712, "TBS Radio (Wide FM)"},                // TBSラジオ(ワイドFM): 90.5MHz
-    {91.6f, 0x8728, "Nippon Cultural Broadcasting (Wide FM)"}, // 文化放送(ワイドFM): 91.6MHz
-    {93.0f, 0x8744, "Nippon Broadcasting (Wide FM)"},      // ニッポン放送(ワイドFM): 93.0MHz
-#else
-    {77.0f, 0x8604, "e-radio"},                            // e-radio: 77.0MHz
-    {80.2f, 0x8644, "FM802"},                              // FM802: 80.2MHz
-    {85.1f, 0x86A6, "FM OSAKA"},                           // FM OSAKA: 85.1MHz
-    {87.4f, 0x86D4, "NHK FM NARA"},                        // NHK FM奈良: 87.4MHz
-    {88.1f, 0x86E2, "NHK FM OSAKA"},                       // NHK FM大阪: 88.1MHz
-    {89.4f, 0x86FC, "alpha-station"},                      // α-STATION: 89.4MHz
-    {89.9f, 0x8706, "Kiss FM KOBE"},                       // Kiss FM KOBE: 89.9MHz
-    {90.6f, 0x8714, "MBS Radio (Wide FM)"},                // MBSラジオ(ワイドFM): 90.6MHz
-    {91.9f, 0x872E, "OBC Radio Osaka (Wide FM)"},          // OBCラジオ大阪(ワイドFM): 91.9MHz
-    {93.3f, 0x874A, "ABC Radio (Wide FM)"}                 // ABCラジオ(ワイドFM): 93.3MHz
-#endif
+    // 東京エリア
+    {80.0f, CALC_FM_FREQ_REG_VAL(80.0f)}, // FM東京:             80.0MHz
+    {81.3f, CALC_FM_FREQ_REG_VAL(81.3f)}, // J-WAVE:             81.3MHz
+    {82.5f, CALC_FM_FREQ_REG_VAL(82.5f)}, // NHK FM東京:         82.5MHz
+    {89.7f, CALC_FM_FREQ_REG_VAL(89.7f)}, // InterFM897:         89.7MHz
+    {90.5f, CALC_FM_FREQ_REG_VAL(90.5f)}, // TBSラジオ(ワイドFM): 90.5MHz
+    {91.6f, CALC_FM_FREQ_REG_VAL(91.6f)}, // 文化放送(ワイドFM):  91.6MHz
+    {93.0f, CALC_FM_FREQ_REG_VAL(93.0f)}, // ニッポン放送(ワイドFM): 93.0MHz
+
+    // 大阪エリア
+    {76.5f, CALC_FM_FREQ_REG_VAL(76.5f)}, // FM COCOLO:            76.5MHz
+    {80.2f, CALC_FM_FREQ_REG_VAL(80.2f)}, // FM802:                80.2MHz
+    {85.1f, CALC_FM_FREQ_REG_VAL(85.1f)}, // FM大阪:                85.1MHz
+    {88.1f, CALC_FM_FREQ_REG_VAL(88.1f)}, // NHK FM大阪:            88.1MHz
+    {89.4f, CALC_FM_FREQ_REG_VAL(89.4f)}, // α-STATION(京都):       89.4MHz
+    {89.9f, CALC_FM_FREQ_REG_VAL(89.9f)}, // Kiss FM KOBE（神戸）:  89.9MHz
+    {90.6f, CALC_FM_FREQ_REG_VAL(90.6f)}, // MBSラジオ(ワイドFM):    90.6MHz
+    {91.9f, CALC_FM_FREQ_REG_VAL(91.9f)}, // ラジオ大阪OBC(ワイドFM): 91.9MHz
+    {93.3f, CALC_FM_FREQ_REG_VAL(93.3f)}, // ABCラジオ(ワイドFM):     93.3MHz
+    {91.1f, CALC_FM_FREQ_REG_VAL(91.1f)}, // ラジオ関西(ワイドFM):    91.1MHz
 };
 const uint8_t FM_STATION_FREQ_TBL_SIZE = sizeof(g_fm_station_freq_tbl) / sizeof(g_fm_station_freq_tbl[0]);
 
+static kt0913_config_t *s_p_config;
 static void _set_reg(uint8_t reg_addr, uint16_t reg_val);
 static uint16_t _get_reg(uint8_t reg_addr);
 // -----------------------------------------------------------
@@ -77,12 +83,20 @@ static uint16_t _get_reg(uint8_t reg_addr);
 
 static void _set_reg(uint8_t reg_addr, uint16_t reg_val)
 {
-    // TODO: 実装
+    if(reg_addr <= 0x3C && reg_addr >= 0x01) {
+        s_p_config->p_i2c_write(reg_addr, reg_val);
+    }
 }
 
 static uint16_t _get_reg(uint8_t reg_addr)
 {
-    // TODO: 実装
+    uint16_t reg_val = 0xFFFF;
+
+    if(reg_addr <= 0x3C && reg_addr >= 0x01) {
+        reg_val = s_p_config->p_i2c_read(reg_addr);
+    }
+
+    return reg_val;
 }
 // -----------------------------------------------------------
 // [API]
@@ -91,19 +105,51 @@ void drv_kt0913_init(kt0913_config_t *p_config)
 {
     uint16_t reg_val;
 
+    // 引数チェック
+    if((p_config == NULL) || (p_config->p_i2c_write == NULL || p_config->p_i2c_read == NULL))
+    {
+        return;
+    }
+
+    s_p_config->radio_area = p_config->radio_area;
+    s_p_config->p_i2c_write = p_config->p_i2c_write;
+    s_p_config->p_i2c_read = p_config->p_i2c_read;
+
+    // [水晶振動子の安定待ち]
     // 1) STATUSAレジスタ(Addr:0x12)をRead
     reg_val = _get_reg(REG_ADDR_STATUSA);
 
     // 2) bit15のXTAL_OKが1(Ready)になるまで待つ
-    // TODO: 実装
+    while((reg_val & 0x8000) == 0)
+    {
+        reg_val = _get_reg(REG_ADDR_STATUSA);
+    }
 
-    // VOLUMEレジスタ(Addr:0x04)のbit13のDMUTEを1(Mute disable) に設定
-    // TODO: 実装
+    // [スピーカーの物理ミュートを無効化]
+    reg_val = _get_reg(REG_ADDR_VOLUME);
+    reg_val |= 0x2000; // bit13(DMUTE)を1にセット
+    _set_reg(REG_ADDR_VOLUME, reg_val);
+
+    // [FMの初期値]
+    if(p_config->radio_area == RADIO_AREA_TOKYO) {
+        drv_kt0913_set_fm_freq(80.0f); // FM東京: 80.0MHz
+    } else {
+        drv_kt0913_set_fm_freq(85.1f); // FM大阪: 85.1MHz
+    }
 }
 
-void drv_kt0913_mute_onoff(bool is_mute)
+void drv_kt0913_softmute_onoff(bool is_mute)
 {
-    // TODO: 実装
+    uint16_t reg_val;
+
+    // SOFTMUTEレジスタ(Addr:0x2E)のbit15のSOFTMUTE_ENを設定
+    reg_val = _get_reg(REG_ADDR_SOFTMUTE);
+    if(is_mute) {
+        reg_val |= 0x8000; // bit15(SOFTMUTE_EN)を1にセット
+    } else {
+        reg_val &= ~0x8000; // bit15(SOFTMUTE_EN)を0にクリア
+    }
+    _set_reg(REG_ADDR_SOFTMUTE, reg_val);
 }
 
 bool drv_kt0913_set_fm_freq(float freq_Mhz)
@@ -113,6 +159,12 @@ bool drv_kt0913_set_fm_freq(float freq_Mhz)
     uint8_t tbl_size;
 
     is_success = false;
+
+    // 周波数の範囲チェック
+    if(KT0913_FM_FREQ_MHZ_MIN > freq_Mhz || freq_Mhz > KT0913_FM_FREQ_MHZ_MAX)
+    {
+        return is_success;
+    }
 
     // 指定のFM周波数をテーブルで検索
     for(i = 0; i < FM_STATION_FREQ_TBL_SIZE; i++)
