@@ -23,7 +23,7 @@ typedef enum {
     REG_ADDR_STATUSA = 0x12,
     REG_ADDR_STATUSB = 0x13,
     REG_ADDR_STATUSC = 0x14,
-    REG_ADDR_SYSCFG  = 0x16,
+    REG_ADDR_AMSYSCFG = 0x16,
     REG_ADDR_AMCHAN  = 0x17,
     REG_ADDR_AMCALI  = 0x18,
     REG_ADDR_GPIO  = 0x1D,
@@ -116,10 +116,9 @@ void drv_kt0913_init(kt0913_config_t *p_config)
     s_p_config->p_i2c_read = p_config->p_i2c_read;
 
     // [水晶振動子の安定待ち]
-    // 1) STATUSAレジスタ(Addr:0x12)をRead
+    // STATUSAレジスタ(Addr:0x12)をRead
     reg_val = _get_reg(REG_ADDR_STATUSA);
-
-    // 2) bit15のXTAL_OKが1(Ready)になるまで待つ
+    // bit15のXTAL_OKが1(Ready)になるまで待つ
     while((reg_val & 0x8000) == 0)
     {
         reg_val = _get_reg(REG_ADDR_STATUSA);
@@ -129,6 +128,12 @@ void drv_kt0913_init(kt0913_config_t *p_config)
     reg_val = _get_reg(REG_ADDR_VOLUME);
     reg_val |= 0x2000; // bit13(DMUTE)を1にセット
     _set_reg(REG_ADDR_VOLUME, reg_val);
+
+    // [ゲインを最大の6dBに設定]
+    reg_val = _get_reg(REG_ADDR_AMSYSCFG);
+    reg_val &= ~0xC000; // bit[7:6]をクリア
+    reg_val |= (AUDIO_GAIN_6DB << 14); // ゲイン値を設定
+    _set_reg(REG_ADDR_AMSYSCFG, reg_val);
 
     // [FMの初期値]
     if(p_config->radio_area == RADIO_AREA_TOKYO) {
@@ -162,6 +167,12 @@ void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl)
     // Volumeは5bitの32段階 @RXCFGレジスタ(Addr:0x0F)のbit4:0の5ビットで制御
     reg_val = (p_volume_ctrl->volume_dB & 0x1F) / 100; // 0 ~ 0x1Fにスケーリング
     _set_reg(REG_ADDR_RXCFG, reg_val);
+
+    // ゲイン設定 @AMSYSCFGレジスタ(Addr:0x16)のbit[7:6]で制御
+    reg_val = _get_reg(REG_ADDR_AMSYSCFG);
+    reg_val &= ~0xC000; // bit[7:6]をクリア
+    reg_val |= ((p_volume_ctrl->audio_gain & 0x03) << 14); // ゲイン値を設定
+    _set_reg(REG_ADDR_AMSYSCFG, reg_val);
 
     // ベースブーストの設定 @Volumeレジスタ(Addr:0x04)のbit[9:8]で制御
     reg_val = _get_reg(REG_ADDR_VOLUME);

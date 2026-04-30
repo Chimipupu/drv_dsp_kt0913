@@ -16,7 +16,7 @@
 
 // -----------------------------------------------------------
 // [コンパイルスイッチ]
-// #define DEBUG_TEST_KT0913
+#define DEBUG_TEST_KT0913
 // -----------------------------------------------------------
 // [Define]
 #define KT0913_CHIP_ID             0x4B54 // NOTE: ChipIDの0x4B54はASCIIで"KT"
@@ -56,6 +56,7 @@ typedef enum {
 typedef void (*i2c_write_func_t)(uint8_t, uint16_t); // I2Cのwrite関数ポインタ
 typedef uint16_t (*i2c_read_func_t)(uint8_t);        // I2Cのread関数ポインタ
 
+// KT0913ドライバ初期化構造体
 typedef struct {
     uint8_t radio_area; // 0: 東京, 1: 大阪
     bool is_stereo;    // true: ステレオ, false: モノラル
@@ -64,9 +65,19 @@ typedef struct {
     i2c_write_func_t p_i2c_write;
     i2c_read_func_t p_i2c_read;
 } kt0913_config_t;
+
+typedef enum {
+    AUDIO_GAIN_3DB       = 0, // 3dB  (AMSYSCFGレジスタのAU_GAIN bit[7:6]=0b00 ※デフォルト値)
+    AUDIO_GAIN_6DB       = 1, // 6dB  (AMSYSCFGレジスタのAU_GAIN bit[7:6]=0b01)
+    AUDIO_GAIN_MINUS_3DB = 2, // -3dB (AMSYSCFGレジスタのAU_GAIN bit[7:6]=0b10)
+    AUDIO_GAIN_0DB       = 3, // 0dB  (AMSYSCFGレジスタのAU_GAIN bit[7:6]=0b11)
+} E_AUDIO_GAIN;
+
+// KT0913ボリューム制御構造体
 typedef struct {
     bool is_bass_boost; // ベースブーストの有無
     uint16_t volume_dB; // ボリューム (0 ~ 100)
+    E_AUDIO_GAIN audio_gain; // オーディオゲイン (-3dB,0dB,3dB,6dBの4段階)
 } kt0913_volume_ctrl_t;
 
 // -----------------------------------------------------------
