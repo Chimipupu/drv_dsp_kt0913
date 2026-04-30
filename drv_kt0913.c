@@ -42,8 +42,8 @@ typedef enum {
 
 // FMラジオ局構造体
 typedef struct {
-    float fm_rerq_Mhz;    // FM周波数(MHz)
-    uint16_t set_reg_val; // KT0913のTUNEレジスタ(Addr:0x03)に設定値
+    float fm_rerq_Mhz;       // FM周波数(MHz)
+    uint16_t set_reg_val;    // KT0913のTUNEレジスタ(Addr:0x03)に設定値
 } fm_station_freq_t;
 
 // KT0913 TUNEレジスタ(0x03)設定値計算マクロ
@@ -152,31 +152,32 @@ void drv_kt0913_softmute_onoff(bool is_mute)
     _set_reg(REG_ADDR_SOFTMUTE, reg_val);
 }
 
-bool drv_kt0913_set_fm_freq(float freq_Mhz)
+bool drv_kt0913_set_fm_freq(E_FM_STATION station)
 {
-    bool is_success;
-    uint8_t i;
-    uint8_t tbl_size;
-
-    is_success = false;
-
-    // 周波数の範囲チェック
-    if(KT0913_FM_FREQ_MHZ_MIN > freq_Mhz || freq_Mhz > KT0913_FM_FREQ_MHZ_MAX)
-    {
-        return is_success;
+    // 引数チェック
+    if(station > FM_STATION_RADIO_KANSAI_WIDEFM) {
+        return false;
     }
 
-    // 指定のFM周波数をテーブルで検索
+    // TUNEレジスタ(Addr:0x03)にFM周波数を設定
+    _set_reg(REG_ADDR_TUNE, g_fm_station_freq_tbl[station].set_reg_val);
+
+    return true;
+}
+
+#ifdef DEBUG_TEST_KT0913
+#include <stdio.h>
+int main(void)
+{
+    uint16_t i;
+
+    // FMラジオ局テーブルの周波数とレジスタ設定値を表示
+    printf("FMラジオ局テーブルサイズ: %d Byte\n", sizeof(g_fm_station_freq_tbl));
     for(i = 0; i < FM_STATION_FREQ_TBL_SIZE; i++)
     {
-        if (g_fm_station_freq_tbl[i].fm_rerq_Mhz == freq_Mhz)
-        {
-            // TUNEレジスタ(Addr:0x03)にFM周波数を設定
-            _set_reg(REG_ADDR_TUNE, g_fm_station_freq_tbl[i].set_reg_val);
-            is_success = true;
-            break;
-        }
+        printf("FM周波数: %.1fMHz, レジスタ設定値: 0x%04X\n", g_fm_station_freq_tbl[i].fm_rerq_Mhz, g_fm_station_freq_tbl[i].set_reg_val);
     }
 
-    return is_success;
+    return 0;
 }
+#endif // DEBUG_TEST_KT0913
