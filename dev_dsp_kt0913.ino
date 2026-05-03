@@ -23,7 +23,7 @@
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C g_lcd(U8G2_R0, U8X8_PIN_NONE);
 
 static void _i2c_init(void);
-static void _ui_draw_fm_freq(float freq_val);
+static void _ui_draw_fm_freq(float freq_val, char *p_str);
 static void _ui_main(void);
 // -----------------------------------------------------------
 // [Static]
@@ -42,7 +42,7 @@ static void _lcd_init(void)
     g_lcd.enableUTF8Print();
 }
 
-static void _ui_draw_fm_freq(float freq_val)
+static void _ui_draw_fm_freq(float freq_val, char *p_str)
 {
     int32_t x_title;
     int32_t y_title;
@@ -63,6 +63,7 @@ static void _ui_draw_fm_freq(float freq_val)
     g_lcd.setFont(u8g2_font_b12_t_japanese1);
     g_lcd.setCursor(x_title, y_title);
     g_lcd.print("FM周波数:");
+    g_lcd.print(p_str); // ラジオ局名を表示
 
     // --- 下段：周波数数値の描画 ---
     // 14ドットの太字英数字フォント
@@ -83,7 +84,7 @@ static void _ui_main(void)
 {
     static uint8_t s_tbl_idx = 0;
 
-    _ui_draw_fm_freq(g_fm_station_freq_tbl[s_tbl_idx].fm_rerq_Mhz);
+    _ui_draw_fm_freq(g_fm_station_freq_tbl[s_tbl_idx].fm_rerq_Mhz, g_fm_station_freq_tbl[s_tbl_idx].p_str);
     s_tbl_idx = (s_tbl_idx + 1) % FM_STATION_FREQ_TBL_SIZE;
 }
 

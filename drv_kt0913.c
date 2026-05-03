@@ -44,25 +44,25 @@ typedef enum {
 // NOTE: 周波数は総務省より引用 (https://www.soumu.go.jp/menu_seisaku/ictseisaku/housou_suishin/fm-list.html)
 const fm_station_freq_t g_fm_station_freq_tbl[] = {
     // 東京エリア
-    {80.0f, CALC_FM_FREQ_REG_VAL(80.0f)}, // FM東京
-    {81.3f, CALC_FM_FREQ_REG_VAL(81.3f)}, // J-WAVE
-    {82.5f, CALC_FM_FREQ_REG_VAL(82.5f)}, // NHK FM東京
-    {89.7f, CALC_FM_FREQ_REG_VAL(89.7f)}, // InterFM897
-    {90.5f, CALC_FM_FREQ_REG_VAL(90.5f)}, // TBSラジオ(ワイドFM)
-    {91.6f, CALC_FM_FREQ_REG_VAL(91.6f)}, // 文化放送(ワイドFM)
-    {93.0f, CALC_FM_FREQ_REG_VAL(93.0f)}, // ニッポン放送(ワイドFM)
+    {80.0f, CALC_FM_FREQ_REG_VAL(80.0f), "FM東京"},
+    {81.3f, CALC_FM_FREQ_REG_VAL(81.3f), "J-WAVE"},
+    {82.5f, CALC_FM_FREQ_REG_VAL(82.5f), "NHK FM東京"},
+    {89.7f, CALC_FM_FREQ_REG_VAL(89.7f), "InterFM897"},
+    {90.5f, CALC_FM_FREQ_REG_VAL(90.5f), "TBSラジオ"},
+    {91.6f, CALC_FM_FREQ_REG_VAL(91.6f), "文化放送"},
+    {93.0f, CALC_FM_FREQ_REG_VAL(93.0f), "ニッポン放送"},
 
     // 大阪エリア
-    {76.5f, CALC_FM_FREQ_REG_VAL(76.5f)}, // FM COCOLO
-    {80.2f, CALC_FM_FREQ_REG_VAL(80.2f)}, // FM802
-    {85.1f, CALC_FM_FREQ_REG_VAL(85.1f)}, // FM大阪
-    {88.1f, CALC_FM_FREQ_REG_VAL(88.1f)}, // NHK FM大阪
-    {89.4f, CALC_FM_FREQ_REG_VAL(89.4f)}, // α-STATION(京都)
-    {89.9f, CALC_FM_FREQ_REG_VAL(89.9f)}, // Kiss FM KOBE(神戸)
-    {90.6f, CALC_FM_FREQ_REG_VAL(90.6f)}, // MBSラジオ(ワイドFM)
-    {91.9f, CALC_FM_FREQ_REG_VAL(91.9f)}, // ラジオ大阪OBC(ワイドFM)
-    {93.3f, CALC_FM_FREQ_REG_VAL(93.3f)}, // ABCラジオ(ワイドFM)
-    {91.1f, CALC_FM_FREQ_REG_VAL(91.1f)}, // ラジオ関西(ワイドFM)
+    {76.5f, CALC_FM_FREQ_REG_VAL(76.5f), "FM COCOLO"},
+    {80.2f, CALC_FM_FREQ_REG_VAL(80.2f), "FM802"},
+    {85.1f, CALC_FM_FREQ_REG_VAL(85.1f), "FM OSAKA"},
+    {88.1f, CALC_FM_FREQ_REG_VAL(88.1f), "NHK FM OSAKA"},
+    {89.4f, CALC_FM_FREQ_REG_VAL(89.4f), "a-STATION"},
+    {89.9f, CALC_FM_FREQ_REG_VAL(89.9f), "Kiss FM KOBE"},
+    {90.6f, CALC_FM_FREQ_REG_VAL(90.6f), "MBSラジオ"},
+    {91.9f, CALC_FM_FREQ_REG_VAL(91.9f), "ラジオ大阪OBC"},
+    {93.3f, CALC_FM_FREQ_REG_VAL(93.3f), "ABCラジオ"},
+    {91.1f, CALC_FM_FREQ_REG_VAL(91.1f), "ラジオ関西"},
 };
 extern const uint8_t FM_STATION_FREQ_TBL_SIZE = sizeof(g_fm_station_freq_tbl) / sizeof(g_fm_station_freq_tbl[0]);
 

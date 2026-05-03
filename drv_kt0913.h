@@ -32,14 +32,15 @@
 #define KT0913_FM_FREQ_MHZ_MAX     110.0f
 
 // 受信地域
-#define RADIO_AREA_TOKYO       0 // 受信地域: 東京
-#define RADIO_AREA_OSAKA       1 // 受信地域: 大阪
+#define RADIO_AREA_TOKYO           0 // 受信地域: 東京
+#define RADIO_AREA_OSAKA           1 // 受信地域: 大阪
 
 // -----------------------------------------------------------
 // FMラジオ局構造体
 typedef struct {
-    float fm_rerq_Mhz;       // FM周波数(MHz)
-    uint16_t set_reg_val;    // KT0913のTUNEレジスタ(Addr:0x03)に設定値
+    float fm_rerq_Mhz;    // FM周波数(MHz)
+    uint16_t set_reg_val; // KT0913のTUNEレジスタ(Addr:0x03)に設定値
+    char *p_str;          // FMラジオ局名
 } fm_station_freq_t;
 extern const fm_station_freq_t g_fm_station_freq_tbl[];
 extern const uint8_t FM_STATION_FREQ_TBL_SIZE;
