@@ -16,7 +16,13 @@
 
 // -----------------------------------------------------------
 // [コンパイルスイッチ]
-#define DEBUG_TEST_KT0913
+// #define DBG_TEST_KT0913 // 単体テスト
+
+// -----------------------------------------------------------
+// [マクロ]
+// KT0913 TUNEレジスタ(0x03)設定値計算マクロ
+#define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f)) & 0x0FFF)))
+
 // -----------------------------------------------------------
 // [Define]
 #define KT0913_CHIP_ID             0x4B54 // NOTE: ChipIDの0x4B54はASCIIで"KT"
@@ -30,6 +36,14 @@
 #define RADIO_AREA_OSAKA       1 // 受信地域: 大阪
 
 // -----------------------------------------------------------
+// FMラジオ局構造体
+typedef struct {
+    float fm_rerq_Mhz;       // FM周波数(MHz)
+    uint16_t set_reg_val;    // KT0913のTUNEレジスタ(Addr:0x03)に設定値
+} fm_station_freq_t;
+extern const fm_station_freq_t g_fm_station_freq_tbl[];
+extern const uint8_t FM_STATION_FREQ_TBL_SIZE;
+
 typedef enum {
     // 東京エリア
     FM_STATION_FM_TOKYO = 0,        // FM東京: 80.0MHz
