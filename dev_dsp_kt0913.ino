@@ -21,15 +21,17 @@
 #define I2C_ADDR_OLED      0x3C
 
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C g_lcd(U8G2_R0, U8X8_PIN_NONE);
-
 kt0913_config_t g_kt0913_cfg;
+
+static uint8_t s_fm_freq_tbl_idx = 0;
+static float s_fm_freq = 76.5f; // 初期周波数
 
 static void _gpio_init(void);
 static void _i2c_init(void);
 static void _i2c_write(uint8_t reg_addr, uint16_t reg_val);
 static uint16_t _i2c_read(uint8_t reg_addr);
+static void _app_dsp_radio(void);
 static void _ui_draw_fm_freq(float freq_val, char *p_str);
-static void _ui_main(void);
 // -----------------------------------------------------------
 // [Static]
 
@@ -47,11 +49,7 @@ static void _i2c_init(void)
 
 static void _i2c_write(uint8_t reg_addr, uint16_t reg_val)
 {
-#if 1
     Wire.beginTransmission(I2C_ADDR_KT0913);
-#else
-    Wire.beginTransmission(I2C_ADDR_KT0913 << 1);
-#endif
     Wire.write(reg_addr);
     Wire.write((reg_val >> 8) & 0xFF); // 上位バイト
     Wire.write(reg_val & 0xFF);        // 下位バイト
@@ -62,19 +60,11 @@ static uint16_t _i2c_read(uint8_t reg_addr)
 {
     uint16_t reg_val = 0xFFFF;
 
-#if 1
     Wire.beginTransmission(I2C_ADDR_KT0913);
-#else
-    Wire.beginTransmission(I2C_ADDR_KT0913 << 1);
-#endif
     Wire.write(reg_addr);
     Wire.endTransmission(false); // リピートスタート
 
-#if 1
     if(Wire.requestFrom(I2C_ADDR_KT0913, 2) == 2) {
-#else
-    if(Wire.requestFrom(I2C_ADDR_KT0913 << 1, 2) == 2) {
-#endif
         reg_val = (Wire.read() << 8); // 上位バイト
         reg_val |= Wire.read();       // 下位バイト
     }
@@ -127,17 +117,24 @@ static void _ui_draw_fm_freq(float freq_val, char *p_str)
     g_lcd.sendBuffer();
 }
 
-static void _ui_main(void)
+static void _app_dsp_radio(void)
 {
-    static uint8_t s_tbl_idx = 0;
+    // シリアルの受信でDSPラジオを制御
+    if (Serial.available() > 0) {
+        char c = Serial.read();
+        // 'n'を受信: FMラジオのCHを切り替え
+        if (c == 'n') {
+            // FM周波数をテーブルから選択
+            drv_kt0913_set_fm_freq((E_FM_STATION)s_fm_freq_tbl_idx);
+            s_fm_freq = g_fm_station_freq_tbl[s_fm_freq_tbl_idx].fm_rerq_Mhz;
+            Serial.printf("FM Freq: %.1f MHz (%s)\r\n", s_fm_freq, g_fm_station_freq_tbl[s_fm_freq_tbl_idx].p_str);
 
-    // FM周波数をテーブルから選択
-    drv_kt0913_set_fm_freq((E_FM_STATION)s_tbl_idx);
+            // UIに周波数とラジオ局名を表示
+            _ui_draw_fm_freq(s_fm_freq, g_fm_station_freq_tbl[s_fm_freq_tbl_idx].p_str);
 
-    // UIに周波数とラジオ局名を表示
-    _ui_draw_fm_freq(g_fm_station_freq_tbl[s_tbl_idx].fm_rerq_Mhz, g_fm_station_freq_tbl[s_tbl_idx].p_str);
-
-    s_tbl_idx = (s_tbl_idx + 1) % FM_STATION_FREQ_TBL_SIZE;
+            s_fm_freq_tbl_idx = (s_fm_freq_tbl_idx + 1) % FM_STATION_FREQ_TBL_SIZE;
+        }
+    }
 }
 
 // -----------------------------------------------------------
@@ -150,26 +147,20 @@ void setup()
     _i2c_init();
 
     // UART初期化
-    // Serial.begin(115200);
+    Serial.begin(115200);
 
     // LCD初期化
     _lcd_init();
     _ui_draw_fm_freq(0.0, "初期化END");
 
-#if 1
     // KT0913ドライバ初期化
-    Serial.printf("KT0913 Driver Init Start\n");
     g_kt0913_cfg.p_i2c_write = _i2c_write;
-    g_kt0913_cfg.p_i2c_read = _i2c_read;
+    g_kt0913_cfg.p_i2c_read  = _i2c_read;
     drv_kt0913_init(&g_kt0913_cfg);
-    Serial.printf("KT0913 Driver Init Done\n");
-#endif
 }
 
 void loop()
 {
-    // UI処理メイン
-    _ui_main();
-
-    delay(5000);
+    // DSPラジオアプリ
+    _app_dsp_radio();
 }

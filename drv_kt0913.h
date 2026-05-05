@@ -97,7 +97,7 @@ typedef enum {
 // KT0913ボリューム制御構造体
 typedef struct {
     bool is_bass_boost; // ベースブーストの有無
-    uint16_t volume_dB; // ボリューム (0 ~ 100)
+    uint8_t volume_dB; // 32段階のボリュームレベル
     E_AUDIO_GAIN audio_gain; // オーディオゲイン (-3dB,0dB,3dB,6dBの4段階)
 } kt0913_volume_ctrl_t;
 

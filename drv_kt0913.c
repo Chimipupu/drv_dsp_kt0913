@@ -44,7 +44,7 @@ typedef enum {
 // NOTE: 周波数は総務省より引用 (https://www.soumu.go.jp/menu_seisaku/ictseisaku/housou_suishin/fm-list.html)
 const fm_station_freq_t g_fm_station_freq_tbl[] = {
 #ifdef RADIO_AREA_TOKYO
-    // 東京エリア
+    // [東京エリア]
     {80.0f, CALC_FM_FREQ_REG_VAL(80.0f), "FM東京"},
     {81.3f, CALC_FM_FREQ_REG_VAL(81.3f), "J-WAVE"},
     {82.5f, CALC_FM_FREQ_REG_VAL(82.5f), "NHK FM東京"},
@@ -53,22 +53,24 @@ const fm_station_freq_t g_fm_station_freq_tbl[] = {
     {91.6f, CALC_FM_FREQ_REG_VAL(91.6f), "文化放送"},
     {93.0f, CALC_FM_FREQ_REG_VAL(93.0f), "ニッポン放送"},
 #else
-    // 大阪エリア
-    {76.5f, CALC_FM_FREQ_REG_VAL(76.5f), "FM COCOLO"},
-    {80.2f, CALC_FM_FREQ_REG_VAL(80.2f), "FM802"},
+    // [大阪エリア]
+    // {76.5f, CALC_FM_FREQ_REG_VAL(76.5f), "FM COCOLO"},
+    // {80.2f, CALC_FM_FREQ_REG_VAL(80.2f), "FM802"},
     {85.1f, CALC_FM_FREQ_REG_VAL(85.1f), "FM OSAKA"},
-    {88.1f, CALC_FM_FREQ_REG_VAL(88.1f), "NHK FM OSAKA"},
-    {89.4f, CALC_FM_FREQ_REG_VAL(89.4f), "a-STATION"},
-    {89.9f, CALC_FM_FREQ_REG_VAL(89.9f), "Kiss FM KOBE"},
+    // {88.1f, CALC_FM_FREQ_REG_VAL(88.1f), "NHK FM OSAKA"},
+    // {89.4f, CALC_FM_FREQ_REG_VAL(89.4f), "a-STATION"},
+    // {89.9f, CALC_FM_FREQ_REG_VAL(89.9f), "Kiss FM KOBE"},
     {90.6f, CALC_FM_FREQ_REG_VAL(90.6f), "MBSラジオ"},
     {91.9f, CALC_FM_FREQ_REG_VAL(91.9f), "ラジオ大阪OBC"},
     {93.3f, CALC_FM_FREQ_REG_VAL(93.3f), "ABCラジオ"},
-    {91.1f, CALC_FM_FREQ_REG_VAL(91.1f), "ラジオ関西"},
+    // {91.1f, CALC_FM_FREQ_REG_VAL(91.1f), "ラジオ関西"},
 #endif
 };
 extern const uint8_t FM_STATION_FREQ_TBL_SIZE = sizeof(g_fm_station_freq_tbl) / sizeof(g_fm_station_freq_tbl[0]);
 
 static kt0913_config_t *s_p_config;
+static kt0913_volume_ctrl_t s_vol_ctrl;
+
 static void _set_reg(uint8_t reg_addr, uint16_t reg_val);
 static uint16_t _get_reg(uint8_t reg_addr);
 // -----------------------------------------------------------
@@ -98,6 +100,7 @@ void drv_kt0913_init(kt0913_config_t *p_config)
 {
     uint16_t reg_val;
 
+#if 0
     // 引数チェック
     if((p_config == NULL) || (p_config->p_i2c_write == NULL || p_config->p_i2c_read == NULL))
     {
@@ -107,8 +110,14 @@ void drv_kt0913_init(kt0913_config_t *p_config)
     // s_p_config->radio_area = p_config->radio_area;
     s_p_config->p_i2c_write = p_config->p_i2c_write;
     s_p_config->p_i2c_read = p_config->p_i2c_read;
+#else
+    if(p_config == NULL) {
+        return;
+    }
 
-#if 0
+    s_p_config = p_config;
+#endif
+
     // [水晶振動子の安定待ち]
     // STATUSAレジスタ(Addr:0x12)をRead
     reg_val = _get_reg(REG_ADDR_STATUSA);
@@ -118,24 +127,24 @@ void drv_kt0913_init(kt0913_config_t *p_config)
     {
         reg_val = _get_reg(REG_ADDR_STATUSA);
     }
-#endif
+
+    // [音量調節]
+    s_vol_ctrl.is_bass_boost = true;
+    s_vol_ctrl.volume_dB = 15; // 0 ~ 31の32段階
+    s_vol_ctrl.audio_gain = AUDIO_GAIN_0DB;
+    drv_kt0913_volume_ctrl(&s_vol_ctrl);
 
     // [スピーカーの物理ミュートを無効化]
     reg_val = _get_reg(REG_ADDR_VOLUME);
     reg_val |= 0x2000; // bit13(DMUTE)を1にセット
     _set_reg(REG_ADDR_VOLUME, reg_val);
 
-    // [ゲインを最大の6dBに設定]
-    reg_val = _get_reg(REG_ADDR_AMSYSCFG);
-    reg_val &= ~0xC000; // bit[7:6]をクリア
-    reg_val |= (AUDIO_GAIN_6DB << 14); // ゲイン値を設定
-    _set_reg(REG_ADDR_AMSYSCFG, reg_val);
-
     // [FMの初期値]
 #ifdef RADIO_AREA_TOKYO
     drv_kt0913_set_fm_freq(80.0f); // FM東京: 80.0MHz
 #else
-    drv_kt0913_set_fm_freq(85.1f); // FM大阪: 85.1MHz
+    // drv_kt0913_set_fm_freq(85.1f); // FM大阪: 85.1MHz
+    drv_kt0913_set_fm_freq(91.9f); // ラジオ大阪OBC: 91.9MHz
 #endif
 }
 
@@ -152,6 +161,7 @@ void drv_kt0913_softmute_onoff(bool is_mute)
     }
     _set_reg(REG_ADDR_SOFTMUTE, reg_val);
 }
+
 void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl)
 {
     uint16_t reg_val;
@@ -161,14 +171,18 @@ void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl)
     }
 
     // Volumeは5bitの32段階 @RXCFGレジスタ(Addr:0x0F)のbit4:0の5ビットで制御
-    reg_val = (p_volume_ctrl->volume_dB & 0x1F) / 100; // 0 ~ 0x1Fにスケーリング
+    reg_val = _get_reg(REG_ADDR_RXCFG);
+    reg_val &= ~0x001F; // bit4:0をクリア
+    reg_val |= (p_volume_ctrl->volume_dB & 0x1F);
     _set_reg(REG_ADDR_RXCFG, reg_val);
 
+#if 0
     // ゲイン設定 @AMSYSCFGレジスタ(Addr:0x16)のbit[7:6]で制御
     reg_val = _get_reg(REG_ADDR_AMSYSCFG);
     reg_val &= ~0xC000; // bit[7:6]をクリア
     reg_val |= ((p_volume_ctrl->audio_gain & 0x03) << 14); // ゲイン値を設定
     _set_reg(REG_ADDR_AMSYSCFG, reg_val);
+#endif
 
     // ベースブーストの設定 @Volumeレジスタ(Addr:0x04)のbit[9:8]で制御
     reg_val = _get_reg(REG_ADDR_VOLUME);
