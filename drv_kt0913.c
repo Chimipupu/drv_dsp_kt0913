@@ -43,6 +43,7 @@ typedef enum {
 // [FMラジオ局テーブル]
 // NOTE: 周波数は総務省より引用 (https://www.soumu.go.jp/menu_seisaku/ictseisaku/housou_suishin/fm-list.html)
 const fm_station_freq_t g_fm_station_freq_tbl[] = {
+#ifdef RADIO_AREA_TOKYO
     // 東京エリア
     {80.0f, CALC_FM_FREQ_REG_VAL(80.0f), "FM東京"},
     {81.3f, CALC_FM_FREQ_REG_VAL(81.3f), "J-WAVE"},
@@ -51,7 +52,7 @@ const fm_station_freq_t g_fm_station_freq_tbl[] = {
     {90.5f, CALC_FM_FREQ_REG_VAL(90.5f), "TBSラジオ"},
     {91.6f, CALC_FM_FREQ_REG_VAL(91.6f), "文化放送"},
     {93.0f, CALC_FM_FREQ_REG_VAL(93.0f), "ニッポン放送"},
-
+#else
     // 大阪エリア
     {76.5f, CALC_FM_FREQ_REG_VAL(76.5f), "FM COCOLO"},
     {80.2f, CALC_FM_FREQ_REG_VAL(80.2f), "FM802"},
@@ -63,6 +64,7 @@ const fm_station_freq_t g_fm_station_freq_tbl[] = {
     {91.9f, CALC_FM_FREQ_REG_VAL(91.9f), "ラジオ大阪OBC"},
     {93.3f, CALC_FM_FREQ_REG_VAL(93.3f), "ABCラジオ"},
     {91.1f, CALC_FM_FREQ_REG_VAL(91.1f), "ラジオ関西"},
+#endif
 };
 extern const uint8_t FM_STATION_FREQ_TBL_SIZE = sizeof(g_fm_station_freq_tbl) / sizeof(g_fm_station_freq_tbl[0]);
 
@@ -102,18 +104,21 @@ void drv_kt0913_init(kt0913_config_t *p_config)
         return;
     }
 
-    s_p_config->radio_area = p_config->radio_area;
+    // s_p_config->radio_area = p_config->radio_area;
     s_p_config->p_i2c_write = p_config->p_i2c_write;
     s_p_config->p_i2c_read = p_config->p_i2c_read;
 
+#if 0
     // [水晶振動子の安定待ち]
     // STATUSAレジスタ(Addr:0x12)をRead
     reg_val = _get_reg(REG_ADDR_STATUSA);
+
     // bit15のXTAL_OKが1(Ready)になるまで待つ
     while((reg_val & 0x8000) == 0)
     {
         reg_val = _get_reg(REG_ADDR_STATUSA);
     }
+#endif
 
     // [スピーカーの物理ミュートを無効化]
     reg_val = _get_reg(REG_ADDR_VOLUME);
@@ -127,11 +132,11 @@ void drv_kt0913_init(kt0913_config_t *p_config)
     _set_reg(REG_ADDR_AMSYSCFG, reg_val);
 
     // [FMの初期値]
-    if(p_config->radio_area == RADIO_AREA_TOKYO) {
-        drv_kt0913_set_fm_freq(80.0f); // FM東京: 80.0MHz
-    } else {
-        drv_kt0913_set_fm_freq(85.1f); // FM大阪: 85.1MHz
-    }
+#ifdef RADIO_AREA_TOKYO
+    drv_kt0913_set_fm_freq(80.0f); // FM東京: 80.0MHz
+#else
+    drv_kt0913_set_fm_freq(85.1f); // FM大阪: 85.1MHz
+#endif
 }
 
 void drv_kt0913_softmute_onoff(bool is_mute)
@@ -175,7 +180,7 @@ void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl)
     _set_reg(REG_ADDR_VOLUME, reg_val);
 }
 
-bool drv_kt0913_set_fm_freq(E_FM_STATION station)
+bool drv_kt0913_set_fm_freq(uint8_t station)
 {
     // 引数チェック
     if(station > FM_STATION_RADIO_KANSAI_WIDEFM) {
