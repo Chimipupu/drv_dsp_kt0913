@@ -59,14 +59,15 @@ const fm_station_freq_t g_fm_station_freq_tbl[] = {
     {93.0f, CALC_FM_FREQ_REG_VAL(93.0f), "ニッポン放送"},
 #else
     // [大阪エリア]
+    // NOTE: U8g2のフォントで大阪の'阪'が非対応なので'坂'で対処
     // {76.5f, CALC_FM_FREQ_REG_VAL(76.5f), "FM COCOLO"},
     // {80.2f, CALC_FM_FREQ_REG_VAL(80.2f), "FM802"},
-    {85.1f, CALC_FM_FREQ_REG_VAL(85.1f), "FM OSAKA"},
+    {85.1f, CALC_FM_FREQ_REG_VAL(85.1f), "FM 大坂"},
     // {88.1f, CALC_FM_FREQ_REG_VAL(88.1f), "NHK FM OSAKA"},
     // {89.4f, CALC_FM_FREQ_REG_VAL(89.4f), "a-STATION"},
     // {89.9f, CALC_FM_FREQ_REG_VAL(89.9f), "Kiss FM KOBE"},
     {90.6f, CALC_FM_FREQ_REG_VAL(90.6f), "MBSラジオ"},
-    {91.9f, CALC_FM_FREQ_REG_VAL(91.9f), "ラジオ大阪OBC"},
+    {91.9f, CALC_FM_FREQ_REG_VAL(91.9f), "ラジオ大坂OBC"},
     {93.3f, CALC_FM_FREQ_REG_VAL(93.3f), "ABCラジオ"},
     // {91.1f, CALC_FM_FREQ_REG_VAL(91.1f), "ラジオ関西"},
 #endif
@@ -195,4 +196,20 @@ bool drv_kt0913_set_fm_freq(uint8_t station)
     _set_reg(REG_ADDR_TUNE, g_fm_station_freq_tbl[station].set_reg_val);
 
     return true;
+}
+
+int8_t drv_kt0913_get_fm_rssi(void)
+{
+    int8_t rssi;
+    uint8_t rssi_reg_val;
+    uint16_t reg_val;
+
+    // FM RSSI: STATUSAレジスタ(Addr:0x12)のbit7:3の5ビット
+    reg_val = _get_reg(REG_ADDR_STATUSA);
+    rssi_reg_val = (uint8_t)((reg_val >> 3) & 0x1F);
+
+    // データシートの計算式: RSSI(dBm) = -100 + (RSSI_REG_VAL * 3dB)
+    rssi = -100 + (rssi_reg_val * 3);
+
+    return rssi;
 }

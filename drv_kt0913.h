@@ -101,6 +101,7 @@ void drv_kt0913_softmute_onoff(bool is_mute);
 void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl);
 uint8_t drv_kt0913_get_volume_val(void);
 bool drv_kt0913_set_fm_freq(uint8_t station);
+int8_t drv_kt0913_get_fm_rssi(void);
 
 #ifdef __cplusplus
 }

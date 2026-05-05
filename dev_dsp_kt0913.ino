@@ -26,6 +26,7 @@ kt0913_config_t g_kt0913_cfg;
 static kt0913_volume_ctrl_t s_vol_ctrl;
 static uint8_t s_fm_freq_tbl_idx = 0;
 static float s_fm_freq = 76.5f; // 初期周波数
+static int8_t s_fm_rssi = 0; // RSSI値
 
 static void _gpio_init(void);
 static void _i2c_init(void);
@@ -81,40 +82,35 @@ static void _lcd_init(void)
     g_lcd.enableUTF8Print();
 }
 
+/**
+ * @brief UIにFM関連情報を表示
+ * @note LCDサイズ: 0.91インチの128x32
+ * @param freq_val FM周波数(MHz)
+ * @param p_str FMラジオ局の日本語文字列ポインタ
+ */
 static void _ui_draw_fm_freq(float freq_val, char *p_str)
 {
-    int32_t x_title;
-    int32_t y_title;
-    int32_t x_num;
-    int32_t y_num;
-    int32_t x_unit;
+    char buf[128];
 
-    x_title = 0;
-    y_title = 12; // 12ドットフォント用のベースライン
-    x_num   = 24; // 数値を少し右に寄せて中央付近に配置
-    y_num   = 31; // 14ドットフォント用のベースライン
-    x_unit  = 90; // 単位を右端に配置
+    /**
+     * @brief LCDの表示例
+     * ラジオ局: FM大阪
+     * 85.1MHz -65dBm
+     */
 
     g_lcd.clearBuffer();
 
-    // --- 上段：タイトルの描画 ---
-    // 12ドットの日本語フォント（画面上部にぴったり収まる）
+    // 1行目: FMラジオ局名（日本語）
     g_lcd.setFont(u8g2_font_b12_t_japanese1);
-    g_lcd.setCursor(x_title, y_title);
-    g_lcd.print("FM周波数:");
-    g_lcd.print(p_str); // ラジオ局名を表示
+    g_lcd.setCursor(0, 12);
+    snprintf(buf, sizeof(buf), "ラジオ局: %s", p_str);
+    g_lcd.print(buf);
 
-    // --- 下段：周波数数値の描画 ---
-    // 14ドットの太字英数字フォント
-    g_lcd.setFont(u8g2_font_helvB14_tr);
-    g_lcd.setCursor(x_num, y_num);
-    g_lcd.print(freq_val, 1); // 小数点第1位まで表示
-
-    // --- 下段：単位の描画 ---
-    // 10ドットの標準英数字フォント
-    g_lcd.setFont(u8g2_font_helvR10_tr);
-    g_lcd.setCursor(x_unit, y_num);
-    g_lcd.print("MHz");
+    // 2行目: FM周波数とRSSI
+    g_lcd.setFont(u8g2_font_helvB12_tr);
+    g_lcd.setCursor(0, 31);
+    snprintf(buf, sizeof(buf), "%.1fMHz %ddBm", freq_val, s_fm_rssi);
+    g_lcd.print(buf);
 
     g_lcd.sendBuffer();
 }
@@ -157,8 +153,10 @@ static void _dsp_radio_main(void)
                 s_fm_freq = g_fm_station_freq_tbl[s_fm_freq_tbl_idx].fm_rerq_Mhz;
 
                 // UIに周波数とラジオ局名を表示
-                Serial.printf("FM Freq: %.1f MHz (%s)\r\n", s_fm_freq, g_fm_station_freq_tbl[s_fm_freq_tbl_idx].p_str);
                 _ui_draw_fm_freq(s_fm_freq, g_fm_station_freq_tbl[s_fm_freq_tbl_idx].p_str);
+                Serial.printf("FM Freq: %.1f MHz (%s)\r\n", s_fm_freq, g_fm_station_freq_tbl[s_fm_freq_tbl_idx].p_str);
+                s_fm_rssi = drv_kt0913_get_fm_rssi();
+                Serial.printf("RSSI: %d dBm\r\n", s_fm_rssi);
 
                 s_fm_freq_tbl_idx = (s_fm_freq_tbl_idx + 1) % FM_STATION_FREQ_TBL_SIZE;
             }
