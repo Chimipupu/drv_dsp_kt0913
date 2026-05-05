@@ -20,12 +20,6 @@ extern "C" {
 
 // -----------------------------------------------------------
 // [コンパイルスイッチ]
-// #define DBG_TEST_KT0913 // 単体テスト
-
-// -----------------------------------------------------------
-// [マクロ]
-// KT0913 TUNEレジスタ(0x03)設定値計算マクロ
-#define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f)) & 0x0FFF)))
 
 // -----------------------------------------------------------
 // [Define]
@@ -105,6 +99,7 @@ typedef struct {
 void drv_kt0913_init(kt0913_config_t *p_config);
 void drv_kt0913_softmute_onoff(bool is_mute);
 void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl);
+uint8_t drv_kt0913_get_volume_val(void);
 bool drv_kt0913_set_fm_freq(uint8_t station);
 
 #ifdef __cplusplus

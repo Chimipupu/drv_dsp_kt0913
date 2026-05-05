@@ -10,6 +10,11 @@
 #include "drv_kt0913.h"
 
 // -----------------------------------------------------------
+// [マクロ]
+// KT0913 TUNEレジスタ(0x03)設定値計算マクロ
+#define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f)) & 0x0FFF)))
+
+// -----------------------------------------------------------
 // KT0913レジスタ
 typedef enum {
     REG_ADDR_CHIP_ID = 0x01,
@@ -66,10 +71,9 @@ const fm_station_freq_t g_fm_station_freq_tbl[] = {
     // {91.1f, CALC_FM_FREQ_REG_VAL(91.1f), "ラジオ関西"},
 #endif
 };
-extern const uint8_t FM_STATION_FREQ_TBL_SIZE = sizeof(g_fm_station_freq_tbl) / sizeof(g_fm_station_freq_tbl[0]);
+const uint8_t FM_STATION_FREQ_TBL_SIZE = sizeof(g_fm_station_freq_tbl) / sizeof(g_fm_station_freq_tbl[0]);
 
-static kt0913_config_t *s_p_config;
-static kt0913_volume_ctrl_t s_vol_ctrl;
+static kt0913_config_t *s_drv_cfg;
 
 static void _set_reg(uint8_t reg_addr, uint16_t reg_val);
 static uint16_t _get_reg(uint8_t reg_addr);
@@ -79,7 +83,7 @@ static uint16_t _get_reg(uint8_t reg_addr);
 static void _set_reg(uint8_t reg_addr, uint16_t reg_val)
 {
     if(reg_addr <= 0x3C && reg_addr >= 0x01) {
-        s_p_config->p_i2c_write(reg_addr, reg_val);
+        s_drv_cfg->p_i2c_write(reg_addr, reg_val);
     }
 }
 
@@ -88,7 +92,7 @@ static uint16_t _get_reg(uint8_t reg_addr)
     uint16_t reg_val = 0xFFFF;
 
     if(reg_addr <= 0x3C && reg_addr >= 0x01) {
-        reg_val = s_p_config->p_i2c_read(reg_addr);
+        reg_val = s_drv_cfg->p_i2c_read(reg_addr);
     }
 
     return reg_val;
@@ -100,23 +104,11 @@ void drv_kt0913_init(kt0913_config_t *p_config)
 {
     uint16_t reg_val;
 
-#if 0
     // 引数チェック
-    if((p_config == NULL) || (p_config->p_i2c_write == NULL || p_config->p_i2c_read == NULL))
-    {
+    if((p_config == NULL) || (p_config->p_i2c_write == NULL || p_config->p_i2c_read == NULL)) {
         return;
     }
-
-    // s_p_config->radio_area = p_config->radio_area;
-    s_p_config->p_i2c_write = p_config->p_i2c_write;
-    s_p_config->p_i2c_read = p_config->p_i2c_read;
-#else
-    if(p_config == NULL) {
-        return;
-    }
-
-    s_p_config = p_config;
-#endif
+    s_drv_cfg = p_config;
 
     // [水晶振動子の安定待ち]
     // STATUSAレジスタ(Addr:0x12)をRead
@@ -128,24 +120,10 @@ void drv_kt0913_init(kt0913_config_t *p_config)
         reg_val = _get_reg(REG_ADDR_STATUSA);
     }
 
-    // [音量調節]
-    s_vol_ctrl.is_bass_boost = true;
-    s_vol_ctrl.volume_dB = 15; // 0 ~ 31の32段階
-    s_vol_ctrl.audio_gain = AUDIO_GAIN_0DB;
-    drv_kt0913_volume_ctrl(&s_vol_ctrl);
-
     // [スピーカーの物理ミュートを無効化]
     reg_val = _get_reg(REG_ADDR_VOLUME);
     reg_val |= 0x2000; // bit13(DMUTE)を1にセット
     _set_reg(REG_ADDR_VOLUME, reg_val);
-
-    // [FMの初期値]
-#ifdef RADIO_AREA_TOKYO
-    drv_kt0913_set_fm_freq(80.0f); // FM東京: 80.0MHz
-#else
-    // drv_kt0913_set_fm_freq(85.1f); // FM大阪: 85.1MHz
-    drv_kt0913_set_fm_freq(91.9f); // ラジオ大阪OBC: 91.9MHz
-#endif
 }
 
 void drv_kt0913_softmute_onoff(bool is_mute)
@@ -194,6 +172,18 @@ void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl)
     _set_reg(REG_ADDR_VOLUME, reg_val);
 }
 
+uint8_t drv_kt0913_get_volume_val(void)
+{
+    uint8_t vol_reg_val;
+    uint16_t reg_val;
+
+    // RXCFGレジスタ(Addr:0x0F)にある音量のBit[4:0]の5bitを返す
+    reg_val = _get_reg(REG_ADDR_RXCFG);
+    vol_reg_val = (uint8_t)(reg_val & 0x1F);
+
+    return vol_reg_val;
+}
+
 bool drv_kt0913_set_fm_freq(uint8_t station)
 {
     // 引数チェック
@@ -206,20 +196,3 @@ bool drv_kt0913_set_fm_freq(uint8_t station)
 
     return true;
 }
-
-#ifdef DBG_TEST_KT0913
-#include <stdio.h>
-int main(void)
-{
-    uint16_t i;
-
-    // FMラジオ局テーブルの周波数とレジスタ設定値を表示
-    printf("FMラジオ局テーブルサイズ: %d Byte\n", sizeof(g_fm_station_freq_tbl));
-    for(i = 0; i < FM_STATION_FREQ_TBL_SIZE; i++)
-    {
-        printf("FM周波数: %.1fMHz, レジスタ設定値: 0x%04X\n", g_fm_station_freq_tbl[i].fm_rerq_Mhz, g_fm_station_freq_tbl[i].set_reg_val);
-    }
-
-    return 0;
-}
-#endif // DBG_TEST_KT0913

@@ -23,6 +23,7 @@
 U8G2_SSD1306_128X32_UNIVISION_F_HW_I2C g_lcd(U8G2_R0, U8X8_PIN_NONE);
 kt0913_config_t g_kt0913_cfg;
 
+static kt0913_volume_ctrl_t s_vol_ctrl;
 static uint8_t s_fm_freq_tbl_idx = 0;
 static float s_fm_freq = 76.5f; // 初期周波数
 
@@ -30,7 +31,8 @@ static void _gpio_init(void);
 static void _i2c_init(void);
 static void _i2c_write(uint8_t reg_addr, uint16_t reg_val);
 static uint16_t _i2c_read(uint8_t reg_addr);
-static void _app_dsp_radio(void);
+static void _dsp_radio_init(void);
+static void _dsp_radio_main(void);
 static void _ui_draw_fm_freq(float freq_val, char *p_str);
 // -----------------------------------------------------------
 // [Static]
@@ -117,22 +119,71 @@ static void _ui_draw_fm_freq(float freq_val, char *p_str)
     g_lcd.sendBuffer();
 }
 
-static void _app_dsp_radio(void)
+static void _dsp_radio_init(void)
 {
+    // KT0913ドライバにI2CのRead/Write関数を渡して初期化
+    g_kt0913_cfg.p_i2c_write = _i2c_write;
+    g_kt0913_cfg.p_i2c_read  = _i2c_read;
+    drv_kt0913_init(&g_kt0913_cfg);
+
+    // 音量調節
+    s_vol_ctrl.is_bass_boost = true;
+    s_vol_ctrl.volume_dB = 15; // 0 ~ 31の32段階
+    s_vol_ctrl.audio_gain = AUDIO_GAIN_3DB;
+    drv_kt0913_volume_ctrl(&s_vol_ctrl);
+
+    // FMの初期値
+#ifdef RADIO_AREA_TOKYO
+    drv_kt0913_set_fm_freq(FM_STATION_FM_TOKYO); // FM東京: 80.0MHz
+#else
+    drv_kt0913_set_fm_freq(FM_STATION_FM_OSAKA); // FM大阪: 85.1MHz
+#endif
+}
+
+static void _dsp_radio_main(void)
+{
+    uint8_t tmp;
+
     // シリアルの受信でDSPラジオを制御
     if (Serial.available() > 0) {
         char c = Serial.read();
-        // 'n'を受信: FMラジオのCHを切り替え
-        if (c == 'n') {
-            // FM周波数をテーブルから選択
-            drv_kt0913_set_fm_freq((E_FM_STATION)s_fm_freq_tbl_idx);
-            s_fm_freq = g_fm_station_freq_tbl[s_fm_freq_tbl_idx].fm_rerq_Mhz;
-            Serial.printf("FM Freq: %.1f MHz (%s)\r\n", s_fm_freq, g_fm_station_freq_tbl[s_fm_freq_tbl_idx].p_str);
 
-            // UIに周波数とラジオ局名を表示
-            _ui_draw_fm_freq(s_fm_freq, g_fm_station_freq_tbl[s_fm_freq_tbl_idx].p_str);
+        // アルファベットのみ処理
+        if((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+            // 'n'を受信: FMラジオのCHを切り替え
+            if (c == 'n') {
+                // FM周波数をテーブルから選択
+                drv_kt0913_set_fm_freq((E_FM_STATION)s_fm_freq_tbl_idx);
+                s_fm_freq = g_fm_station_freq_tbl[s_fm_freq_tbl_idx].fm_rerq_Mhz;
 
-            s_fm_freq_tbl_idx = (s_fm_freq_tbl_idx + 1) % FM_STATION_FREQ_TBL_SIZE;
+                // UIに周波数とラジオ局名を表示
+                Serial.printf("FM Freq: %.1f MHz (%s)\r\n", s_fm_freq, g_fm_station_freq_tbl[s_fm_freq_tbl_idx].p_str);
+                _ui_draw_fm_freq(s_fm_freq, g_fm_station_freq_tbl[s_fm_freq_tbl_idx].p_str);
+
+                s_fm_freq_tbl_idx = (s_fm_freq_tbl_idx + 1) % FM_STATION_FREQ_TBL_SIZE;
+            }
+            // 'u'を受信: 音量アップ
+            else if (c == 'u') {
+                tmp = drv_kt0913_get_volume_val();
+                if(tmp < 31) {
+                    s_vol_ctrl.volume_dB = tmp + 1;
+                } else {
+                    s_vol_ctrl.volume_dB = 31;
+                }
+                drv_kt0913_volume_ctrl(&s_vol_ctrl);
+                Serial.printf("Volume Up: %d\r\n", s_vol_ctrl.volume_dB);
+            }
+            // 'd'を受信: 音量ダウン
+            else if (c == 'd') {
+                tmp = drv_kt0913_get_volume_val();
+                if(tmp > 0) {
+                    s_vol_ctrl.volume_dB = tmp - 1;
+                } else {
+                    s_vol_ctrl.volume_dB = 0;
+                }
+                drv_kt0913_volume_ctrl(&s_vol_ctrl);
+                Serial.printf("Volume Down: %d\r\n", s_vol_ctrl.volume_dB);
+            }
         }
     }
 }
@@ -151,16 +202,13 @@ void setup()
 
     // LCD初期化
     _lcd_init();
-    _ui_draw_fm_freq(0.0, "初期化END");
 
-    // KT0913ドライバ初期化
-    g_kt0913_cfg.p_i2c_write = _i2c_write;
-    g_kt0913_cfg.p_i2c_read  = _i2c_read;
-    drv_kt0913_init(&g_kt0913_cfg);
+    // DSPラジオ初期化
+    _dsp_radio_init();
 }
 
 void loop()
 {
     // DSPラジオアプリ
-    _app_dsp_radio();
+    _dsp_radio_main();
 }
