@@ -37,7 +37,7 @@ typedef enum {
     REG_ADDR_AMSTATUSB = 0x25,
     REG_ADDR_SOFTMUTE = 0x2E,
     REG_ADDR_USERSTARTCH = 0x2F,
-    REG_ADDR_USERSTARTNUM = 0x30,
+    REG_ADDR_USERGUARD = 0x30,
     REG_ADDR_USERCHANNUM = 0x31,
     REG_ADDR_AMCFG = 0x33,
     REG_ADDR_AMCFG2 = 0x34,
@@ -60,16 +60,16 @@ const fm_station_freq_t g_fm_station_freq_tbl[] = {
 #else
     // [大阪エリア]
     // NOTE: U8g2のフォントで大阪の'阪'が非対応なので'坂'で対処
-    // {76.5f, CALC_FM_FREQ_REG_VAL(76.5f), "FM COCOLO"},
-    // {80.2f, CALC_FM_FREQ_REG_VAL(80.2f), "FM802"},
+    {76.5f, CALC_FM_FREQ_REG_VAL(76.5f), "FM COCOLO"},
+    {80.2f, CALC_FM_FREQ_REG_VAL(80.2f), "FM802"},
     {85.1f, CALC_FM_FREQ_REG_VAL(85.1f), "FM 大坂"},
-    // {88.1f, CALC_FM_FREQ_REG_VAL(88.1f), "NHK FM OSAKA"},
-    // {89.4f, CALC_FM_FREQ_REG_VAL(89.4f), "a-STATION"},
-    // {89.9f, CALC_FM_FREQ_REG_VAL(89.9f), "Kiss FM KOBE"},
+    {88.1f, CALC_FM_FREQ_REG_VAL(88.1f), "NHK FM OSAKA"},
+    {89.4f, CALC_FM_FREQ_REG_VAL(89.4f), "a-STATION"},
+    {89.9f, CALC_FM_FREQ_REG_VAL(89.9f), "Kiss FM KOBE"},
     {90.6f, CALC_FM_FREQ_REG_VAL(90.6f), "MBSラジオ"},
     {91.9f, CALC_FM_FREQ_REG_VAL(91.9f), "ラジオ大坂OBC"},
     {93.3f, CALC_FM_FREQ_REG_VAL(93.3f), "ABCラジオ"},
-    // {91.1f, CALC_FM_FREQ_REG_VAL(91.1f), "ラジオ関西"},
+    {91.1f, CALC_FM_FREQ_REG_VAL(91.1f), "ラジオ関西"},
 #endif
 };
 const uint8_t FM_STATION_FREQ_TBL_SIZE = sizeof(g_fm_station_freq_tbl) / sizeof(g_fm_station_freq_tbl[0]);
@@ -101,6 +101,41 @@ static uint16_t _get_reg(uint8_t reg_addr)
 // -----------------------------------------------------------
 // [API]
 
+/**
+ * @brief FM有効化
+ * @note データシートの「3.8.1. Programmable band」でFMを有効化
+ */
+void drv_kt0913_fm_mode(void)
+{
+    uint16_t reg_val;
+
+    // 1. AMSYSCFGレジスタ(Addr:0x16)のAM/FM選択とUSERBAND設定
+    reg_val = _get_reg(REG_ADDR_AMSYSCFG);
+    reg_val &= ~0x8000; // bit15(AM_FM)を0にクリアしてFMモードに設定
+    reg_val |= 0x4000;  // bit14(USERBAND)を1にセット
+    _set_reg(REG_ADDR_AMSYSCFG, reg_val);
+
+    // 2. SEEKレジスタ(Addr:0x02)でFMチャンネルステップを設定
+    reg_val = _get_reg(REG_ADDR_SEEK);
+    reg_val &= ~0x000C; // bit[3:2]をクリア
+    reg_val |= 0x0004;  // bit[3:2]を01 (100KHzステップ)に設定
+    _set_reg(REG_ADDR_SEEK, reg_val);
+
+    // 3. USERSTARTCHレジスタ(Addr:0x2F)にFMの開始周波数を設定
+    reg_val = _get_reg(REG_ADDR_USERSTARTCH);
+    reg_val &= ~0x7FFF; // bit[14:0]をクリア
+    reg_val |= 0x05F0;  // 76.0MHz = 1520 * 50kHz (1520 = 0x5F0)
+    _set_reg(REG_ADDR_USERSTARTCH, reg_val);
+
+    // 4. USERCHANNUMレジスタ(Addr:0x31)にチャンネル数を設定
+    reg_val = _get_reg(REG_ADDR_USERCHANNUM);
+    reg_val &= ~0x0FFF; // bit[11:0]をクリア
+    // チャンネル数 = 340チャンネル @76.0MHz ~ 110.0MHz @100KHzステップ
+    // NOTE: (110.0 - 76.0) / 0.1 = 340チャンネル (340 = 0x0154)
+    reg_val |= 0x0154;
+    _set_reg(REG_ADDR_USERCHANNUM, reg_val);
+}
+
 void drv_kt0913_init(kt0913_config_t *p_config)
 {
     uint16_t reg_val;
@@ -120,6 +155,9 @@ void drv_kt0913_init(kt0913_config_t *p_config)
     {
         reg_val = _get_reg(REG_ADDR_STATUSA);
     }
+
+    // [FMモードの有効化]
+    drv_kt0913_fm_mode();
 
     // [スピーカーの物理ミュートを無効化]
     reg_val = _get_reg(REG_ADDR_VOLUME);

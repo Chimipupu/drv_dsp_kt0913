@@ -96,6 +96,7 @@ typedef struct {
 } kt0913_volume_ctrl_t;
 
 // -----------------------------------------------------------
+void drv_kt0913_fm_mode(void);
 void drv_kt0913_init(kt0913_config_t *p_config);
 void drv_kt0913_softmute_onoff(bool is_mute);
 void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl);
