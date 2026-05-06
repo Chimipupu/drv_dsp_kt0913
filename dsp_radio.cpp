@@ -132,6 +132,7 @@ void dsp_radio_vol_ctrl(bool is_vol_up)
 
     s_vol_ctrl.volume_dB = vol_val;
     drv_kt0913_volume_ctrl(&s_vol_ctrl);
+    Serial.printf("Volume: %d\r\n", vol_val);
 }
 
 void dsp_radio_init(void)

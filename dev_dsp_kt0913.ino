@@ -25,7 +25,12 @@ static void _i2c_init(void);
 
 static void _gpio_init(void)
 {
-    // TODO
+    // 基板のYD-RP2040のボタン(GPIO24)を割り込みに設定
+    // NOTTE: ボタンがONでFMのCH切り替えをコールバック
+    pinMode(24, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(24), []() {
+        dsp_radio_fm_ch_chg();
+    }, FALLING);
 }
 
 static void _i2c_init(void)

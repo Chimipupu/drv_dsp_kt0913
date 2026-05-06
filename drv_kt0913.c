@@ -12,7 +12,8 @@
 // -----------------------------------------------------------
 // [マクロ]
 // KT0913 TUNEレジスタ(0x03)設定値計算マクロ
-#define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f)) & 0x0FFF)))
+// #define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f)) & 0x0FFF)))
+#define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f + 0.5f)) & 0x0FFF)))
 
 // -----------------------------------------------------------
 // KT0913レジスタ
@@ -109,29 +110,33 @@ void drv_kt0913_fm_mode(void)
 {
     uint16_t reg_val;
 
-    // 1. AMSYSCFGレジスタ(Addr:0x16)のAM/FM選択とUSERBAND設定
+    // 1. LOCFGCレジスタ(Addr:0x0C)でキャンパスバンドを有効化
+    reg_val = _get_reg(REG_ADDR_LOCFGC);
+    reg_val |= 0x0008; // bit3(CAMPUSBAND_EN)を1
+    _set_reg(REG_ADDR_LOCFGC, reg_val);
+
+    // 2. AMSYSCFGレジスタ(Addr:0x16)のAM/FM選択とUSERBAND設定
     reg_val = _get_reg(REG_ADDR_AMSYSCFG);
     reg_val &= ~0x8000; // bit15(AM_FM)を0にクリアしてFMモードに設定
-    reg_val |= 0x4000;  // bit14(USERBAND)を1にセット
+    reg_val |= 0x4000;  // bit14(USERBAND)を1にセットしてカスタム帯域を有効化
     _set_reg(REG_ADDR_AMSYSCFG, reg_val);
 
-    // 2. SEEKレジスタ(Addr:0x02)でFMチャンネルステップを設定
+    // 3. SEEKレジスタ(Addr:0x02)でFMチャンネルステップを設定
     reg_val = _get_reg(REG_ADDR_SEEK);
     reg_val &= ~0x000C; // bit[3:2]をクリア
     reg_val |= 0x0004;  // bit[3:2]を01 (100KHzステップ)に設定
     _set_reg(REG_ADDR_SEEK, reg_val);
 
-    // 3. USERSTARTCHレジスタ(Addr:0x2F)にFMの開始周波数を設定
+    // 4. USERSTARTCHレジスタ(Addr:0x2F)にFMの開始周波数を設定
     reg_val = _get_reg(REG_ADDR_USERSTARTCH);
     reg_val &= ~0x7FFF; // bit[14:0]をクリア
     reg_val |= 0x05F0;  // 76.0MHz = 1520 * 50kHz (1520 = 0x5F0)
     _set_reg(REG_ADDR_USERSTARTCH, reg_val);
 
-    // 4. USERCHANNUMレジスタ(Addr:0x31)にチャンネル数を設定
+    // 5. USERCHANNUMレジスタ(Addr:0x31)にチャンネル数を設定
     reg_val = _get_reg(REG_ADDR_USERCHANNUM);
     reg_val &= ~0x0FFF; // bit[11:0]をクリア
     // チャンネル数 = 340チャンネル @76.0MHz ~ 110.0MHz @100KHzステップ
-    // NOTE: (110.0 - 76.0) / 0.1 = 340チャンネル (340 = 0x0154)
     reg_val |= 0x0154;
     _set_reg(REG_ADDR_USERCHANNUM, reg_val);
 }
@@ -225,13 +230,20 @@ uint8_t drv_kt0913_get_volume_val(void)
 
 bool drv_kt0913_set_fm_freq(uint8_t station)
 {
+    uint16_t reg_val;
+
     // 引数チェック
     if(station > FM_STATION_RADIO_KANSAI_WIDEFM) {
         return false;
     }
 
-    // TUNEレジスタ(Addr:0x03)にFM周波数を設定
-    _set_reg(REG_ADDR_TUNE, g_fm_station_freq_tbl[station].set_reg_val);
+    reg_val = g_fm_station_freq_tbl[station].set_reg_val;
+
+    // [TUNEレジスタ(Addr:0x03)にFM周波数を設定]
+    // NOTE:TUNEシーケンス(STC)の起動のために一度、FMTUNEビット(bit15)を0にする
+    _set_reg(REG_ADDR_TUNE, reg_val & ~0x8000);
+    // NOTE: FMTUNEビットを1にして指定周波数にチューニングを開始させる
+    _set_reg(REG_ADDR_TUNE, reg_val);
 
     return true;
 }
