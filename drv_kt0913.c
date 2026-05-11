@@ -74,6 +74,7 @@ static kt0913_volume_ctrl_t s_vol_ctrl;
 static bool _reg_addr_check(uint8_t reg_addr);
 static void _set_reg(uint8_t reg_addr, uint16_t reg_val);
 static uint16_t _get_reg(uint8_t reg_addr);
+static bool _check_stc_reg(void);
 // -----------------------------------------------------------
 // [Static]
 
@@ -108,6 +109,22 @@ static uint16_t _get_reg(uint8_t reg_addr)
 
     return reg_val;
 }
+
+static bool _check_stc_reg(void)
+{
+    bool ret = false;
+    uint16_t reg_val;
+
+    reg_val = _get_reg(REG_ADDR_STATUSA);
+
+    // Bit14のSTCをチェック(TUNE or SEEKの完了確認)
+    if((reg_val & 0x4000) != 0) {
+        ret = true;
+    }
+
+    return ret;
+}
+
 // -----------------------------------------------------------
 // [API]
 
@@ -264,6 +281,7 @@ uint8_t drv_kt0913_get_volume_val(void)
 bool drv_kt0913_set_fm_freq(uint8_t station)
 {
     uint16_t reg_val;
+    bool is_stc;
 
     // 引数チェック
     if(station > FM_STATION_RADIO_KANSAI_WIDEFM) {
@@ -273,10 +291,18 @@ bool drv_kt0913_set_fm_freq(uint8_t station)
     reg_val = g_fm_station_freq_tbl[station].set_reg_val;
 
     // [TUNEレジスタ(Addr:0x03)にFM周波数を設定]
-    // NOTE:TUNEシーケンス(STC)の起動のために一度、FMTUNEビット(bit15)を0にする
+
+    // FMTUNEビット(bit15)は0にして周波数を設定
     _set_reg(REG_ADDR_TUNE, reg_val & ~0x8000);
-    // NOTE: FMTUNEビットを1にして指定周波数にチューニングを開始させる
+
+    // FMTUNEビットを1にして指定の周波数にTUNE開始
     _set_reg(REG_ADDR_TUNE, reg_val | 0x8000);
+
+    // STCビットでTUNEの完了待ち
+    while (is_stc = false)
+    {
+        is_stc = _check_stc_reg();
+    }
 
     return true;
 }
