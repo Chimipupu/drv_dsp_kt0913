@@ -36,6 +36,14 @@ const uint8_t g_kt0913_reg_addr_tbl[] = {
     REG_ADDR_AMDSP,
     REG_ADDR_AMSTATUSA,
     REG_ADDR_AMSTATUSB,
+    REG_ADDR_SOFTMUTE,
+    REG_ADDR_USERSTARTCH,
+    REG_ADDR_USERGUARD,
+    REG_ADDR_USERCHANNUM,
+    REG_ADDR_AMCFG,
+    REG_ADDR_AMCFG2,
+    REG_ADDR_VOLGUARD,
+    REG_ADDR_AFC,
 };
 const uint8_t KT0913_REG_TBL_SIZE = sizeof(g_kt0913_reg_addr_tbl) / sizeof(g_kt0913_reg_addr_tbl[0]);
 
@@ -146,10 +154,14 @@ void drv_kt0913_fm_mode(void)
 {
     uint16_t reg_val;
 
+    // 1. LOCFGAレジスタ(Addr:0x0A)でAFCを有効化
+    _set_reg(REG_ADDR_LOCFGA, 0x0000); // bit8のFMAFCを0に設定(= AFC有効)
+
     // 1. LOCFGCレジスタ(Addr:0x0C)でキャンパスバンドを有効化
     reg_val = _get_reg(REG_ADDR_LOCFGC);
-    reg_val |= 0x0008; // bit3(CAMPUSBAND_EN)を1
+    reg_val |= 0x0008; // bit3のCAMPUSBAND_ENを1に設定(= キャンパスバンド有効)
     _set_reg(REG_ADDR_LOCFGC, reg_val);
+
 #if 0
     // 2. AMSYSCFGレジスタ(Addr:0x16)のAM/FM選択とUSERBAND設定
     reg_val = _get_reg(REG_ADDR_AMSYSCFG);
