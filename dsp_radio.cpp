@@ -30,8 +30,27 @@ static int8_t s_fm_rssi = 0; // RSSI値
 static void _i2c_write(uint8_t reg_addr, uint16_t reg_val);
 static uint16_t _i2c_read(uint8_t reg_addr);
 static void _ui_draw_fm_freq(float freq_val, char *p_str);
+
+#ifdef DEBUG_DSP_RADIO
+static void _dbg_get_all_reg(void);
+#endif // DEBUG_DSP_RADIO
 // -----------------------------------------------------------
 // [Static]
+
+#ifdef DEBUG_DSP_RADIO
+static void _dbg_get_all_reg(void)
+{
+    uint8_t i;
+    uint16_t reg_val;
+
+    Serial.println("[DEBUG] DSP(KT0913) All Register Read Dump:");
+    for(i = 0; i < KT0913_REG_TBL_SIZE; i++)
+    {
+        reg_val = drv_kt0913_get_reg(g_kt0913_reg_addr_tbl[i]);
+        Serial.printf("[DEBUG] Reg[0x%02X]: 0x%04X\r\n", g_kt0913_reg_addr_tbl[i], reg_val);
+    }
+}
+#endif // DEBUG_DSP_RADIO
 
 static void _i2c_write(uint8_t reg_addr, uint16_t reg_val)
 {
@@ -155,6 +174,11 @@ void dsp_radio_init(void)
     drv_kt0913_set_fm_freq(FM_STATION_FM_OSAKA); // FM大阪: 85.1MHz
 #endif
 
+#ifdef DEBUG_DSP_RADIO
+    // [DEBUG] DSPの全レジスタを読み出し
+    _dbg_get_all_reg();
+#endif // DEBUG_DSP_RADIO
+
     // LCD初期化
     _lcd_init();
 
@@ -174,14 +198,26 @@ void dsp_radio_main(void)
             // 'n'を受信: FMラジオのCHを切り替え
             if (c == 'n') {
                 dsp_radio_fm_ch_chg();
+#ifdef DEBUG_DSP_RADIO
+                // [DEBUG] DSPの全レジスタを読み出し
+                _dbg_get_all_reg();
+#endif // DEBUG_DSP_RADIO
             }
             // 'u'を受信: 音量アップ
             else if (c == 'u') {
                 dsp_radio_vol_ctrl(true);
+#ifdef DEBUG_DSP_RADIO
+                // [DEBUG] DSPの全レジスタを読み出し
+                _dbg_get_all_reg();
+#endif // DEBUG_DSP_RADIO
             }
             // 'd'を受信: 音量ダウン
             else if (c == 'd') {
                 dsp_radio_vol_ctrl(false);
+#ifdef DEBUG_DSP_RADIO
+                // [DEBUG] DSPの全レジスタを読み出し
+                _dbg_get_all_reg();
+#endif // DEBUG_DSP_RADIO
             }
         }
     }

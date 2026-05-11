@@ -12,39 +12,32 @@
 // -----------------------------------------------------------
 // [マクロ]
 // KT0913 TUNEレジスタ(0x03)設定値計算マクロ
-// #define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f)) & 0x0FFF)))
-#define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f + 0.5f)) & 0x0FFF)))
+#define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f)) & 0x0FFF)))
+// #define CALC_FM_FREQ_REG_VAL(freq_mhz)    ((uint16_t)(0x8000 | (((uint32_t)((freq_mhz) * 20.0f + 0.5f)) & 0x0FFF)))
 
 // -----------------------------------------------------------
-// KT0913レジスタ
-typedef enum {
-    REG_ADDR_CHIP_ID = 0x01,
-    REG_ADDR_SEEK = 0x02,
-    REG_ADDR_TUNE = 0x03,
-    REG_ADDR_VOLUME = 0x04,
-    REG_ADDR_DSPCFGGA = 0x05,
-    REG_ADDR_LOCFGA = 0x0A,
-    REG_ADDR_LOCFGC = 0x0C,
-    REG_ADDR_RXCFG  = 0x0F,
-    REG_ADDR_STATUSA = 0x12,
-    REG_ADDR_STATUSB = 0x13,
-    REG_ADDR_STATUSC = 0x14,
-    REG_ADDR_AMSYSCFG = 0x16,
-    REG_ADDR_AMCHAN  = 0x17,
-    REG_ADDR_AMCALI  = 0x18,
-    REG_ADDR_GPIO  = 0x1D,
-    REG_ADDR_AMDSP = 0x22,
-    REG_ADDR_AMSTATUSA = 0x24,
-    REG_ADDR_AMSTATUSB = 0x25,
-    REG_ADDR_SOFTMUTE = 0x2E,
-    REG_ADDR_USERSTARTCH = 0x2F,
-    REG_ADDR_USERGUARD = 0x30,
-    REG_ADDR_USERCHANNUM = 0x31,
-    REG_ADDR_AMCFG = 0x33,
-    REG_ADDR_AMCFG2 = 0x34,
-    REG_ADDR_VOLGUARD = 0x3A,
-    REG_ADDR_AFC = 0x3C,
-} KT0913_REG_ADDR;
+// [レジスタテーブル]
+const uint8_t g_kt0913_reg_addr_tbl[] = {
+    REG_ADDR_CHIP_ID,
+    REG_ADDR_SEEK,
+    REG_ADDR_TUNE,
+    REG_ADDR_VOLUME,
+    REG_ADDR_DSPCFGGA,
+    REG_ADDR_LOCFGA,
+    REG_ADDR_LOCFGC,
+    REG_ADDR_RXCFG,
+    REG_ADDR_STATUSA,
+    REG_ADDR_STATUSB,
+    REG_ADDR_STATUSC,
+    REG_ADDR_AMSYSCFG,
+    REG_ADDR_AMCHAN,
+    REG_ADDR_AMCALI,
+    REG_ADDR_GPIO,
+    REG_ADDR_AMDSP,
+    REG_ADDR_AMSTATUSA,
+    REG_ADDR_AMSTATUSB,
+};
+const uint8_t KT0913_REG_TBL_SIZE = sizeof(g_kt0913_reg_addr_tbl) / sizeof(g_kt0913_reg_addr_tbl[0]);
 
 // [FMラジオ局テーブル]
 // NOTE: 周波数は総務省より引用 (https://www.soumu.go.jp/menu_seisaku/ictseisaku/housou_suishin/fm-list.html)
@@ -75,17 +68,33 @@ const fm_station_freq_t g_fm_station_freq_tbl[] = {
 };
 const uint8_t FM_STATION_FREQ_TBL_SIZE = sizeof(g_fm_station_freq_tbl) / sizeof(g_fm_station_freq_tbl[0]);
 
-static kt0913_config_t *s_drv_cfg;
+static kt0913_config_t s_drv_cfg;
+static kt0913_volume_ctrl_t s_vol_ctrl;
 
+static bool _reg_addr_check(uint8_t reg_addr);
 static void _set_reg(uint8_t reg_addr, uint16_t reg_val);
 static uint16_t _get_reg(uint8_t reg_addr);
 // -----------------------------------------------------------
 // [Static]
 
+static bool _reg_addr_check(uint8_t reg_addr)
+{
+    uint8_t i;
+
+    for(i = 0; i < KT0913_REG_TBL_SIZE; i++)
+    {
+        if(g_kt0913_reg_addr_tbl[i] == reg_addr) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 static void _set_reg(uint8_t reg_addr, uint16_t reg_val)
 {
-    if(reg_addr <= 0x3C && reg_addr >= 0x01) {
-        s_drv_cfg->p_i2c_write(reg_addr, reg_val);
+    if(_reg_addr_check(reg_addr)) {
+        s_drv_cfg.p_i2c_write(reg_addr, reg_val);
     }
 }
 
@@ -93,14 +102,24 @@ static uint16_t _get_reg(uint8_t reg_addr)
 {
     uint16_t reg_val = 0xFFFF;
 
-    if(reg_addr <= 0x3C && reg_addr >= 0x01) {
-        reg_val = s_drv_cfg->p_i2c_read(reg_addr);
+    if(_reg_addr_check(reg_addr)) {
+        reg_val = s_drv_cfg.p_i2c_read(reg_addr);
     }
 
     return reg_val;
 }
 // -----------------------------------------------------------
 // [API]
+
+void drv_kt0913_set_reg(uint8_t reg_addr, uint16_t reg_val)
+{
+    _set_reg(reg_addr, reg_val);
+}
+
+uint16_t drv_kt0913_get_reg(uint8_t reg_addr)
+{
+    return _get_reg(reg_addr);
+}
 
 /**
  * @brief FM有効化
@@ -114,7 +133,7 @@ void drv_kt0913_fm_mode(void)
     reg_val = _get_reg(REG_ADDR_LOCFGC);
     reg_val |= 0x0008; // bit3(CAMPUSBAND_EN)を1
     _set_reg(REG_ADDR_LOCFGC, reg_val);
-
+#if 0
     // 2. AMSYSCFGレジスタ(Addr:0x16)のAM/FM選択とUSERBAND設定
     reg_val = _get_reg(REG_ADDR_AMSYSCFG);
     reg_val &= ~0x8000; // bit15(AM_FM)を0にクリアしてFMモードに設定
@@ -139,6 +158,7 @@ void drv_kt0913_fm_mode(void)
     // チャンネル数 = 340チャンネル @76.0MHz ~ 110.0MHz @100KHzステップ
     reg_val |= 0x0154;
     _set_reg(REG_ADDR_USERCHANNUM, reg_val);
+#endif
 }
 
 void drv_kt0913_init(kt0913_config_t *p_config)
@@ -149,17 +169,24 @@ void drv_kt0913_init(kt0913_config_t *p_config)
     if((p_config == NULL) || (p_config->p_i2c_write == NULL || p_config->p_i2c_read == NULL)) {
         return;
     }
-    s_drv_cfg = p_config;
 
-    // [水晶振動子の安定待ち]
+    s_drv_cfg = *p_config;
+
+    // [IC内蔵の水晶振動子の安定待ち]
     // STATUSAレジスタ(Addr:0x12)をRead
     reg_val = _get_reg(REG_ADDR_STATUSA);
-
     // bit15のXTAL_OKが1(Ready)になるまで待つ
     while((reg_val & 0x8000) == 0)
     {
         reg_val = _get_reg(REG_ADDR_STATUSA);
     }
+
+    // [外付けの水晶振動子に変更]
+    // AMSYSCFGレジスタ(Addr:0x16)のBit12 RCLK_ENをセット
+    reg_val = _get_reg(REG_ADDR_AMSYSCFG);
+    reg_val |= 0x1000; // Bit12(RCLK_EN)を1にセットして外付けの水晶振動子に変更
+    reg_val &= ~0x0F00; // Bit[11:8]を0にして外付けの水晶振動子の32.768kHzを指定
+    _set_reg(REG_ADDR_AMSYSCFG, reg_val);
 
     // [FMモードの有効化]
     drv_kt0913_fm_mode();
@@ -168,6 +195,10 @@ void drv_kt0913_init(kt0913_config_t *p_config)
     reg_val = _get_reg(REG_ADDR_VOLUME);
     reg_val |= 0x2000; // bit13(DMUTE)を1にセット
     _set_reg(REG_ADDR_VOLUME, reg_val);
+
+    // [初期音量調整]
+    s_vol_ctrl.volume_dB = 15;
+    drv_kt0913_volume_ctrl(&s_vol_ctrl);
 }
 
 void drv_kt0913_softmute_onoff(bool is_mute)
@@ -192,6 +223,8 @@ void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl)
         return;
     }
 
+    s_vol_ctrl = *p_volume_ctrl;
+
     // Volumeは5bitの32段階 @RXCFGレジスタ(Addr:0x0F)のbit4:0の5ビットで制御
     reg_val = _get_reg(REG_ADDR_RXCFG);
     reg_val &= ~0x001F; // bit4:0をクリア
@@ -206,12 +239,12 @@ void drv_kt0913_volume_ctrl(kt0913_volume_ctrl_t *p_volume_ctrl)
     _set_reg(REG_ADDR_AMSYSCFG, reg_val);
 #endif
 
-    // ベースブーストの設定 @Volumeレジスタ(Addr:0x04)のbit[9:8]で制御
+    // Bass Boostの設定 @Volumeレジスタ(Addr:0x04)のbit[9:8]で制御
     reg_val = _get_reg(REG_ADDR_VOLUME);
     if(p_volume_ctrl->is_bass_boost) {
-        reg_val |= 0x0300; // bit[9:8]をセットしてベースブーストON
+        reg_val |= 0x0300; // bit[9:8]をセットしてBass Boost
     } else {
-        reg_val &= ~0x0300; // bit[9:8]を0にクリアしてベースブーストOFF
+        reg_val &= ~0x0300; // bit[9:8]を0にクリアしてBass Boost OFF
     }
     _set_reg(REG_ADDR_VOLUME, reg_val);
 }
@@ -243,7 +276,7 @@ bool drv_kt0913_set_fm_freq(uint8_t station)
     // NOTE:TUNEシーケンス(STC)の起動のために一度、FMTUNEビット(bit15)を0にする
     _set_reg(REG_ADDR_TUNE, reg_val & ~0x8000);
     // NOTE: FMTUNEビットを1にして指定周波数にチューニングを開始させる
-    _set_reg(REG_ADDR_TUNE, reg_val);
+    _set_reg(REG_ADDR_TUNE, reg_val | 0x8000);
 
     return true;
 }

@@ -11,6 +11,11 @@
 #define DSP_RADIO_H
 
 #include "drv_kt0913.h"
+// -----------------------------------------------------------
+// [コンパイルスイッチ]
+#define DEBUG_DSP_RADIO
+
+// -----------------------------------------------------------
 
 void dsp_radio_fm_ch_chg(void);
 void dsp_radio_vol_ctrl(bool is_vol_up);

@@ -20,6 +20,7 @@ extern "C" {
 
 // -----------------------------------------------------------
 // [コンパイルスイッチ]
+#define DEBUG_DRV_KT0913
 
 // -----------------------------------------------------------
 // [Define]
@@ -36,6 +37,39 @@ extern "C" {
 #define RADIO_AREA_OSAKA           1 // 受信地域: 大阪
 
 // -----------------------------------------------------------
+// KT0913レジスタ
+typedef enum {
+    REG_ADDR_CHIP_ID = 0x01,
+    REG_ADDR_SEEK = 0x02,
+    REG_ADDR_TUNE = 0x03,
+    REG_ADDR_VOLUME = 0x04,
+    REG_ADDR_DSPCFGGA = 0x05,
+    REG_ADDR_LOCFGA = 0x0A,
+    REG_ADDR_LOCFGC = 0x0C,
+    REG_ADDR_RXCFG  = 0x0F,
+    REG_ADDR_STATUSA = 0x12,
+    REG_ADDR_STATUSB = 0x13,
+    REG_ADDR_STATUSC = 0x14,
+    REG_ADDR_AMSYSCFG = 0x16,
+    REG_ADDR_AMCHAN  = 0x17,
+    REG_ADDR_AMCALI  = 0x18,
+    REG_ADDR_GPIO  = 0x1D,
+    REG_ADDR_AMDSP = 0x22,
+    REG_ADDR_AMSTATUSA = 0x24,
+    REG_ADDR_AMSTATUSB = 0x25,
+    REG_ADDR_SOFTMUTE = 0x2E,
+    REG_ADDR_USERSTARTCH = 0x2F,
+    REG_ADDR_USERGUARD = 0x30,
+    REG_ADDR_USERCHANNUM = 0x31,
+    REG_ADDR_AMCFG = 0x33,
+    REG_ADDR_AMCFG2 = 0x34,
+    REG_ADDR_VOLGUARD = 0x3A,
+    REG_ADDR_AFC = 0x3C,
+} KT0913_REG_ADDR;
+
+extern const uint8_t g_kt0913_reg_addr_tbl[];
+extern const uint8_t KT0913_REG_TBL_SIZE;
+
 // FMラジオ局構造体
 typedef struct {
     float fm_rerq_Mhz;    // FM周波数(MHz)
@@ -96,6 +130,8 @@ typedef struct {
 } kt0913_volume_ctrl_t;
 
 // -----------------------------------------------------------
+void drv_kt0913_set_reg(uint8_t reg_addr, uint16_t reg_val);
+uint16_t drv_kt0913_get_reg(uint8_t reg_addr);
 void drv_kt0913_fm_mode(void);
 void drv_kt0913_init(kt0913_config_t *p_config);
 void drv_kt0913_softmute_onoff(bool is_mute);
