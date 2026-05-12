@@ -320,6 +320,7 @@ bool drv_kt0913_set_fm_freq(uint8_t station)
     // FMTUNEビットを1にして指定の周波数にTUNE開始
     _set_reg(REG_ADDR_TUNE, reg_val | 0x8000);
     // STCビットでTUNEの完了待ち
+    is_stc = false;
     while (is_stc = false)
     {
         is_stc = _check_stc_reg();
