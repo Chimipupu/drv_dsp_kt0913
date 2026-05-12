@@ -154,8 +154,12 @@ void drv_kt0913_fm_mode(void)
 {
     uint16_t reg_val;
 
-    // 1. LOCFGAレジスタ(Addr:0x0A)でAFCを有効化
-    _set_reg(REG_ADDR_LOCFGA, 0x0000); // bit8のFMAFCを0に設定(= AFC有効)
+#if 1
+    // 0. LOCFGAレジスタ(Addr:0x0A)でAFCを有効化
+    reg_val = _get_reg(REG_ADDR_LOCFGA);
+    reg_val &= ~0x0100;  // bit8のFMAFCを0に設定(= AFC有効)
+    _set_reg(REG_ADDR_LOCFGA, reg_val);
+#endif
 
     // 1. LOCFGCレジスタ(Addr:0x0C)でキャンパスバンドを有効化
     reg_val = _get_reg(REG_ADDR_LOCFGC);
@@ -210,12 +214,14 @@ void drv_kt0913_init(kt0913_config_t *p_config)
         reg_val = _get_reg(REG_ADDR_STATUSA);
     }
 
+#if 0
     // [外付けの水晶振動子に変更]
     // AMSYSCFGレジスタ(Addr:0x16)のBit12 RCLK_ENをセット
     reg_val = _get_reg(REG_ADDR_AMSYSCFG);
     reg_val |= 0x1000; // Bit12(RCLK_EN)を1にセットして外付けの水晶振動子に変更
     reg_val &= ~0x0F00; // Bit[11:8]を0にして外付けの水晶振動子の32.768kHzを指定
     _set_reg(REG_ADDR_AMSYSCFG, reg_val);
+#endif
 
     // [FMモードの有効化]
     drv_kt0913_fm_mode();
@@ -228,18 +234,24 @@ void drv_kt0913_init(kt0913_config_t *p_config)
     // [初期音量調整]
     s_vol_ctrl.volume_dB = 15;
     drv_kt0913_volume_ctrl(&s_vol_ctrl);
+
+#if 1
+    // [FM SoftMute]
+    // NOTE: ノイズ抑制でFMのソフトミュートを有効
+    drv_kt0913_softmute_onoff(true);
+#endif
 }
 
 void drv_kt0913_softmute_onoff(bool is_mute)
 {
     uint16_t reg_val;
 
-    // SOFTMUTEレジスタ(Addr:0x2E)のbit15のSOFTMUTE_ENを設定
-    reg_val = _get_reg(REG_ADDR_SOFTMUTE);
+    // VOLUMEレジスタ(Addr:0x04)のbit15を設定
+    reg_val = _get_reg(REG_ADDR_VOLUME);
     if(is_mute) {
-        reg_val |= 0x8000; // bit15(SOFTMUTE_EN)を1にセット
+        reg_val &= ~0x8000; // bit15(SOFTMUTE_EN)を0にクリアしてFMをソフトミュート
     } else {
-        reg_val &= ~0x8000; // bit15(SOFTMUTE_EN)を0にクリア
+        reg_val |= 0x8000; // bit15(SOFTMUTE_EN)を1にセットしてFMをソフトミュートを無効
     }
     _set_reg(REG_ADDR_SOFTMUTE, reg_val);
 }
@@ -303,18 +315,17 @@ bool drv_kt0913_set_fm_freq(uint8_t station)
     reg_val = g_fm_station_freq_tbl[station].set_reg_val;
 
     // [TUNEレジスタ(Addr:0x03)にFM周波数を設定]
-
     // FMTUNEビット(bit15)は0にして周波数を設定
     _set_reg(REG_ADDR_TUNE, reg_val & ~0x8000);
-
     // FMTUNEビットを1にして指定の周波数にTUNE開始
     _set_reg(REG_ADDR_TUNE, reg_val | 0x8000);
-
     // STCビットでTUNEの完了待ち
     while (is_stc = false)
     {
         is_stc = _check_stc_reg();
     }
+
+    drv_kt0913_volume_ctrl(&s_vol_ctrl);
 
     return true;
 }
@@ -325,7 +336,7 @@ int8_t drv_kt0913_get_fm_rssi(void)
     uint8_t rssi_reg_val;
     uint16_t reg_val;
 
-    // FM RSSI: STATUSAレジスタ(Addr:0x12)のbit7:3の5ビット
+    // STATUSAレジスタ(Addr:0x12)のBit[7:3]のFMRSSIビット
     reg_val = _get_reg(REG_ADDR_STATUSA);
     rssi_reg_val = (uint8_t)((reg_val >> 3) & 0x1F);
 
